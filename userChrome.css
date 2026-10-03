@@ -1,0 +1,211 @@
+/* ==============================================================
+   MakeTabsGreatAgain
+   Classic connected tabs for Firefox 157 (Nova UI)  — v2
+
+   - Adds rounded top corners, square bottom with outward curves
+   - Selected tab, nav bar and bookmarks bar share one colour
+   - Darker tab strip behind
+   - Soft shadow on the selected tab, clipped at the bottom
+   - Doesn't break the Adaptive Tab Bar Color extension
+   - Might break other things
+
+   ============================================================== */
+
+
+/* ---------- Your knobs ---------- */
+
+:root {
+  --uc-tab-radius: 8px;               /* top corners */
+  --uc-flare-radius: 8px;             /* bottom outward curves */
+  --uc-context-line: 1px;             /* container colour bar height */
+  --uc-tab-shadow: 0 0 4px rgba(0, 0, 0, 0.18);
+  --uc-content-nudge: 2px;            /* move tab text/icons down */
+}
+
+
+/* ---------- Colours ----------
+   With no theme active we paint our own colours.
+   With a theme active (including extensions like Adaptive Tab Bar
+   Colour, which work by applying a theme) we take every background
+   from the theme, so it always matches the theme's text colour. */
+
+:root:not([lwtheme]) {
+  --uc-toolbar-bg: #ffffff;           /* selected tab + nav bar */
+  --uc-tabstrip-bg: #e6e6eb;          /* tab strip behind the tabs */
+  --uc-tab-hover-bg: rgba(255, 255, 255, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([lwtheme]) {
+    --uc-toolbar-bg: #2b2a33;
+    --uc-tabstrip-bg: #1c1b22;
+    --uc-tab-hover-bg: rgba(255, 255, 255, 0.06);
+    --uc-tab-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[lwtheme] {
+  --uc-tab-hover-bg: rgba(128, 128, 128, 0.15);
+
+  /* How far the tab strip moves from the toolbar colour, towards the
+     theme's text colour. Light themes get a darker strip, dark themes
+     a lighter one. Raise for more contrast. */
+  --uc-tabstrip-contrast: 10%;
+}
+
+/* Mixed on the element itself so it picks up the theme's current
+   colours. currentColor is the theme's text colour there, so this
+   darkens light themes and lightens dark ones. Firefox 155 renamed
+   --toolbar-bgcolor to --toolbar-background-color; both are tried. */
+:root[lwtheme] #titlebar,
+:root[lwtheme] #TabsToolbar {
+  background-color: color-mix(
+    in srgb,
+    var(--toolbar-background-color, var(--toolbar-bgcolor, #ffffff)),
+    currentColor var(--uc-tabstrip-contrast)
+  ) !important;
+}
+
+
+/* ---------- Variable overrides ---------- */
+
+:root:not([lwtheme]) {
+  --tab-selected-bgcolor: var(--uc-toolbar-bg) !important;          /* pre-155 name */
+  --tab-background-color-selected: var(--uc-toolbar-bg) !important; /* 155+ name */
+}
+
+:root {
+  --tab-selected-shadow: var(--uc-tab-shadow) !important;
+  --tabs-navbar-separator-style: none !important;
+}
+
+
+/* ---------- Tab strip ---------- */
+
+#titlebar,
+#TabsToolbar {
+  background-color: var(--uc-tabstrip-bg) !important;
+}
+
+#TabsToolbar,
+#tabbrowser-tabs,
+#tabbrowser-arrowscrollbox {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+
+/* ---------- Toolbars below the tabs ---------- */
+
+#nav-bar,
+#PersonalToolbar {
+  background-color: var(--uc-toolbar-bg, var(--toolbar-background-color, var(--toolbar-bgcolor))) !important;
+}
+
+#nav-bar {
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+
+/* ---------- Tab shape ---------- */
+
+.tabbrowser-tab .tab-background {
+  position: relative;
+  border-radius: var(--uc-tab-radius) var(--uc-tab-radius) 0 0 !important;
+  margin-block-end: 0 !important;
+  border: none !important;
+}
+
+/* Remove Nova's outline (the line under the selected tab),
+   but keep the keyboard focus ring */
+.tabbrowser-tab:not(:focus-visible) .tab-background {
+  outline: none !important;
+}
+
+.tabbrowser-tab:not([selected], [multiselected]) .tab-background {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab:not([selected], [multiselected]):hover .tab-background {
+  background-color: var(--uc-tab-hover-bg) !important;
+}
+
+/* Nudge label, icon and close button down without changing tab height */
+.tabbrowser-tab .tab-content {
+  translate: 0 var(--uc-content-nudge);
+}
+
+
+/* ---------- Selected tab ---------- */
+
+.tabbrowser-tab:is([selected], [multiselected]) .tab-background {
+  background-color: var(--uc-toolbar-bg, var(--toolbar-background-color, var(--toolbar-bgcolor))) !important;
+  background-image: none !important;
+  box-shadow: var(--uc-tab-shadow) !important;
+
+  /* Shadow spills up and sideways, not down; side allowance
+     follows the flare size so the curves aren't cut off */
+  --uc-clip-side: calc(-1 * var(--uc-flare-radius) - 4px);
+  clip-path: inset(-12px var(--uc-clip-side) 0 var(--uc-clip-side));
+}
+
+
+/* ---------- Container colour bar ---------- */
+
+/* The bar is a real element: <hbox class="tab-context-line"> as the
+   first child of .tab-background. Its colour comes from the tab's
+   identity-color-* class. We clear every way it could be sized or
+   painted, then repaint it ourselves at a fixed height. */
+.tabbrowser-tab .tab-context-line {
+  height: var(--uc-context-line) !important;
+  min-height: 0 !important;
+  max-height: var(--uc-context-line) !important;
+  padding-block: 0 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+
+.tabbrowser-tab[usercontextid] .tab-context-line {
+  background-color: var(--identity-tab-color) !important;
+}
+
+
+/* ---------- Outward flares ----------
+   Two radius-sized squares at the bottom corners, filled with
+   the toolbar colour except for a circle that carves the curve. */
+
+.tabbrowser-tab:is([selected], [multiselected]) .tab-background::before,
+.tabbrowser-tab:is([selected], [multiselected]) .tab-background::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  bottom: 0 !important;
+  top: auto !important;
+  width: var(--uc-flare-radius) !important;
+  height: var(--uc-flare-radius) !important;
+  pointer-events: none;
+}
+
+.tabbrowser-tab:is([selected], [multiselected]) .tab-background::before {
+  left: calc(-1 * var(--uc-flare-radius)) !important;
+  right: auto !important;
+  background: radial-gradient(
+    circle at 0 0,
+    transparent var(--uc-flare-radius),
+    var(--uc-toolbar-bg, var(--toolbar-background-color, var(--toolbar-bgcolor))) calc(var(--uc-flare-radius) + 0.5px)
+  ) !important;
+}
+
+.tabbrowser-tab:is([selected], [multiselected]) .tab-background::after {
+  right: calc(-1 * var(--uc-flare-radius)) !important;
+  left: auto !important;
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent var(--uc-flare-radius),
+    var(--uc-toolbar-bg, var(--toolbar-background-color, var(--toolbar-bgcolor))) calc(var(--uc-flare-radius) + 0.5px)
+  ) !important;
+}
